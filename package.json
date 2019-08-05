@@ -1,5 +1,5 @@
 {
-  "name": "pino-pretty",
+  "name": "@boco/pino-pretty",
   "version": "3.2.0",
   "description": "Prettifier for Pino log lines",
   "main": "index.js",
