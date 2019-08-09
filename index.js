@@ -6,10 +6,12 @@ const { ERROR_LIKE_KEYS, MESSAGE_KEY, TIMESTAMP_KEY } = require('./lib/constants
 
 const {
   defaultLogParsingSequence,
-  createLogProcessor
+  createLogProcessor,
+  parseInput,
+  buildLine,
+  State
 } = require('./lib/log-processors')
 const { JsonLogProcessor } = require('./lib/processors/JsonLogProcessor')
-const { buildLine } = require('./lib/line-builders')
 
 const defaultOptions = {
   colorize: chalk.supportsColor,
@@ -50,26 +52,17 @@ class Prettifier {
   }
 
   prettify (inputData) {
-    let nextInput = inputData
-
     const { context, logParsers, lineBuilders } = this
+    const state = new State()
 
-    for (let index = 0; index < logParsers.length; index++) {
-      const logParser = logParsers[index]
-      const result = logParser.parse(nextInput, context)
-      if (result) {
-        if (result.done) {
-          return result.output
-        } else {
-          nextInput = result.output
-        }
-      }
+    const output = parseInput(logParsers, context, inputData, state)
+    if (state.stopped) {
+      return output
     }
 
-    context.log = nextInput
+    context.log = output
 
     const line = buildLine(lineBuilders, context)
-
     return line
   }
 }
