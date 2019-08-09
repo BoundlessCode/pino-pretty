@@ -3,15 +3,13 @@
 const chalk = require('chalk')
 const colors = require('./lib/colors')
 const { ERROR_LIKE_KEYS, MESSAGE_KEY, TIMESTAMP_KEY } = require('./lib/constants')
-const {
-  prettifyLevel,
-  prettifyMessage,
-  prettifyMetadata,
-  prettifyTime
-} = require('./lib/utils')
 
-const logParsers = require('./lib/log-parsers')
-const { buildLine, lineBuilders } = require('./lib/line-builders')
+const {
+  defaultLogParsingSequence,
+  createLogProcessor
+} = require('./lib/log-processors')
+const { JsonLogProcessor } = require('./lib/processors/JsonLogProcessor')
+const { buildLine } = require('./lib/line-builders')
 
 const defaultOptions = {
   colorize: chalk.supportsColor,
@@ -26,34 +24,39 @@ const defaultOptions = {
   outputStream: process.stdout
 }
 
-module.exports = function prettyFactory (options) {
-  const opts = Object.assign({}, defaultOptions, options)
-  const messageKey = opts.messageKey
-  const timestampKey = opts.timestampKey
+class Prettifier {
+  constructor (options) {
+    const opts = Object.assign({}, defaultOptions, options)
 
-  const colorizer = colors(opts.colorize)
+    this.context = {
+      EOL: opts.crlf ? '\r\n' : '\n',
+      IDENT: '    ',
+      translateFormat: opts.translateTime,
+      colorizer: colors(opts.colorize),
+      prettified: {},
+      ...opts
+    }
 
-  const context = {
-    opts,
-    EOL: opts.crlf ? '\r\n' : '\n',
-    IDENT: '    '
+    const definitions = [new JsonLogProcessor()]
+    if (opts.logParsers) {
+      definitions.push(...opts.logParsers)
+    } else {
+      definitions.push(...defaultLogParsingSequence)
+    }
+    const logProcessors = definitions.map(definition => createLogProcessor(definition))
+
+    this.logParsers = logProcessors.filter(logProcessor => !!logProcessor.parse)
+    this.lineBuilders = logProcessors.filter(logProcessor => !!logProcessor.build)
   }
 
-  if (opts.logParsers) {
-    logParsers.push(...opts.logParsers)
-  }
-
-  if (opts.lineBuilders) {
-    lineBuilders.push(...opts.lineBuilders)
-  }
-
-  return pretty
-
-  function pretty (inputData) {
+  prettify (inputData) {
     let nextInput = inputData
 
-    for (const logParser of logParsers) {
-      const result = logParser(nextInput, context)
+    const { context, logParsers, lineBuilders } = this
+
+    for (let index = 0; index < logParsers.length; index++) {
+      const logParser = logParsers[index]
+      const result = logParser.parse(nextInput, context)
       if (result) {
         if (result.done) {
           return result.output
@@ -63,20 +66,15 @@ module.exports = function prettyFactory (options) {
       }
     }
 
-    let log = nextInput
+    context.log = nextInput
 
-    const prettified = {
-      prettifiedLevel: prettifyLevel({ log, colorizer }),
-      prettifiedMessage: prettifyMessage({ log, messageKey, colorizer }),
-      prettifiedMetadata: prettifyMetadata({ log }),
-      prettifiedTime: prettifyTime({ log, translateFormat: opts.translateTime, timestampKey })
-    }
-
-    context.log = log
-    context.prettified = prettified
-
-    let line = buildLine(context)
+    const line = buildLine(lineBuilders, context)
 
     return line
   }
+}
+
+module.exports = function prettyFactory (options) {
+  const prettifier = new Prettifier(options)
+  return (inputData) => prettifier.prettify(inputData)
 }
