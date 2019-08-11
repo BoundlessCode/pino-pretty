@@ -140,7 +140,8 @@ The `colorize` default follows
 Note: the `logParsers` and `lineBuilders` options do not correspond to CLI arguments.
 They are available only for API usage, as described below.
 
-#### log processors
+<a id="log-processors"></a>
+#### Log Processors
 
 A log processor is an object that parses a log entry and builds the corresponding
 formatted line sent to the output stream. The log processing sequence is composed of
@@ -160,7 +161,9 @@ stages.
 `pino-pretty` uses the following built-in log processors, in this order:
 
 * `json` (*parser*) - Parses the input `ndjson` string as an object, which is
-  subsequently passed to the remaining log processors.
+  subsequently passed to the remaining log processors. If the json parser fails to parse
+  the input, the log processing sequence for the current line is aborted (short-
+  circuited) and the original input is returned with an end-of-line.
 * `primitives` (*parser*) - If the parsed result of the `json` log processor is `null`,
   a boolean value, or a number, the log processing sequence for the current line is
   aborted (short-circuited) and the value is returned.
@@ -256,7 +259,8 @@ custom log processor, use one of the following structures:
 Only declare the `parse` or `build` method that is needed. Declaring a method that
 does nothing will negatively affect performance.
 
-#### parsing
+<a id="log-processors-parsing"></a>
+#### Parsing
 
 The `parse` function receives three parameters:`input`, `context`, and `state`.
 
@@ -265,7 +269,7 @@ The `parse` function receives three parameters:`input`, `context`, and `state`.
 
 * The `context` object represents the options, settings, and other data used by the log
   processors. The `options` object used to initialize Pino, is merged into the `context`
-  object, making those settings available to overy log processor.
+  object, making those settings available to every log processor.
 
   The following properties are always available as well:
   - `EOL`: the actual end-of-line characters, as specified by the `crlf` option
@@ -294,9 +298,10 @@ parsers will be used, and the build stage will be skipped as well. The value ret
 by the parser that calls the `stop` function will be returned as the final formatted
 output.
 
-#### building
+<a id="log-processors-building"></a>
+#### Building
 
-The `build` function is a simple functions that prepares the final formatted line.
+The `build` function is a simple function that prepares the final formatted line.
 It receives two parameters: `lineParts` and `context`.
 * The `lineParts` array contains the ordered list of strings that will eventually be joined
   after all the build functions have been executed.
@@ -314,7 +319,8 @@ The builder function does not return a value. To change the output, modify the
 Note that if a parser short-circuits the parsing process, the builders will not be
 executed at all.
 
-#### examples
+<a id="log-processors-examples"></a>
+#### Examples
 
 The following are a number of examples of parsers, builders, and combined log processors:
 
@@ -341,7 +347,7 @@ The following are a number of examples of parsers, builders, and combined log pr
 
   ```js
   {
-    parse(input, { colorizer, inlineSection ) {
+    parse(input, { colorizer, inlineSection }) {
       if(inlineSection && 'section' in input) {
         context.prettified.section = `[${colorizer(input.section)}]`
       }
@@ -375,8 +381,9 @@ The following are a number of examples of parsers, builders, and combined log pr
   }
   ```
 
-* **parser** and **builder** - Parse a log entry and then use the result to build the
-  output line:
+* **parser** and **builder** - Parse a log entry during the parsing stage, and use the
+  result to build the output line during the building stage (after all the parsers have
+  been executed):
 
   ```js
   {
