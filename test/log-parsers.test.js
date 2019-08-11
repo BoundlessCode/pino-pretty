@@ -11,29 +11,15 @@ test('extensible log parsers tests', (t) => {
     t.plan(1)
     let executed = false
     const pretty = prettyFactory({
-      logParsers: [
+      processors: [
         (input) => {
           executed = true
-          return { output: input }
+          return input
         }
       ]
     })
     const formatted = pretty(logLine)
     t.is(executed, true, `custom log parser was not executed: ${formatted}`)
-  })
-
-  t.test('use input for custom log parsers that return undefined result object', (t) => {
-    t.plan(1)
-    const builtInPretty = prettyFactory()
-    const customPretty = prettyFactory({
-      logParsers: [
-        ...defaultLogParsingSequence,
-        () => undefined
-      ]
-    })
-    const builtInOutput = builtInPretty(logLine)
-    const customOutput = customPretty(logLine)
-    t.is(customOutput, builtInOutput, `input did not pass through on undefined result`)
   })
 
   t.test('manually specifying built-in loggers is same as default behavior', (t) => {
@@ -47,7 +33,7 @@ test('extensible log parsers tests', (t) => {
       }, [])
     const builtInPretty = prettyFactory()
     const customPretty = prettyFactory({
-      logParsers: names
+      processors: names
     })
     const builtInOutput = builtInPretty(logLine)
     const customOutput = customPretty(logLine)
@@ -58,7 +44,7 @@ test('extensible log parsers tests', (t) => {
     t.plan(1)
     let wasParsed = false
     const customPretty = prettyFactory({
-      logParsers: [(log) => {
+      processors: [(log) => {
         wasParsed = typeof log === 'object'
       }]
     })
